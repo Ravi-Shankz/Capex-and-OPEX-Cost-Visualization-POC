@@ -1,0 +1,477 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Demo Finance — Draft Dashboard (v3)</title>
+
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<style>
+  :root{
+    --pwc-orange:#D04A02; --pwc-orange-2:#EB8C00; --pwc-charcoal:#2D2D2D;
+    --pwc-cloud:#FAF7F5; --card:#fff; --muted:#6b7280;
+    --ok:#15803d; --bad:#b91c1c; --warn:#a16207; --border:#e8e3df;
+  }
+  html,body{margin:0;background:var(--pwc-cloud);color:#222;font:14px/1.45 Inter,system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif}
+  header{position:sticky;top:0;z-index:10;background:#fff;border-bottom:3px solid var(--pwc-orange);
+         padding:12px 16px;display:flex;align-items:center;gap:12px}
+  header h1{margin:0;font-size:18px;color:var(--pwc-charcoal)}
+  .spacer{flex:1}
+  .logo-img{height:34px;display:block}
+  .wrap{max-width:1320px;margin:16px auto 48px;padding:0 16px}
+  .card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px;box-shadow:0 2px 6px rgba(0,0,0,.04)}
+  .card h3{margin:0 0 8px;font-size:14px;color:#333}
+  .controls{display:grid;gap:12px;grid-template-columns:repeat(12,1fr)}
+  .slicer{grid-column:span 3;display:flex;flex-direction:column;gap:6px}
+  .slicer label{font-size:12px;font-weight:700}
+  select{min-height:36px;border:1px solid var(--border);border-radius:8px;padding:6px 8px;background:#fff;font:12px Inter,system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif}
+  .btnrow{grid-column:span 12;display:flex;gap:8px;align-items:center;justify-content:space-between}
+  button{appearance:none;border:0;border-radius:8px;padding:8px 12px;cursor:pointer;font-weight:700}
+  .primary{background:var(--pwc-orange);color:#fff}
+  .secondary{background:#fff;border:1px solid var(--border);color:#333}
+  .hint{font-size:12px;color:#555}
+
+  .kpis{display:grid;gap:12px;grid-template-columns:repeat(6,1fr);margin-top:12px}
+  .kpi{background:#fff;border:1px solid var(--border);border-radius:12px;padding:14px}
+  .kpi .label{font-size:11px;color:#444}
+  .kpi .value{font-size:20px;font-weight:800;margin-top:6px}
+  .kpi .delta{font-size:11px;margin-top:6px}
+  .ok{color:var(--ok)} .bad{color:var(--bad)} .warn{color:var(--warn)}
+
+  .grid2{display:grid;gap:12px;grid-template-columns:1.6fr 1.4fr;margin-top:12px}
+  .grid2 .card canvas{width:100%;height:360px}
+  .grid2b{display:grid;gap:12px;grid-template-columns:1fr 1fr;margin-top:12px}
+  .grid2b .card canvas{width:100%;height:320px}
+
+  table{width:100%;border-collapse:separate;border-spacing:0}
+  th,td{padding:8px 10px;text-align:right;border-bottom:1px solid var(--border);font-variant-numeric:tabular-nums}
+  th:first-child,td:first-child{text-align:left}
+  thead th{position:sticky;top:0;background:#fff;border-bottom:2px solid #efeae6}
+  tbody tr:hover{background:#fff8f3}
+  .tag{display:inline-block;padding:2px 8px;border-radius:999px;font-size:11px;border:1px solid var(--border)}
+  .tag.ok{background:#f0fdf4;border-color:#dcfce7;color:var(--ok)}
+  .tag.bad{background:#fef2f2;border-color:#fee2e2;color:var(--bad)}
+  .note{font-size:12px;color:#555;margin-top:6px}
+
+  .toolbar{display:flex;gap:8px;align-items:center}
+  .toolbar select{min-height:32px}
+
+  @media (max-width:1020px){
+    .controls{grid-template-columns:repeat(6,1fr)}
+    .slicer{grid-column:span 3}
+    .kpis{grid-template-columns:repeat(3,1fr)}
+    .grid2,.grid2b{grid-template-columns:1fr}
+  }
+  @media print{
+    header{position:static}
+    .btnrow, #btn-csv{display:none!important}
+    .card{break-inside:avoid}
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>Demo client</h1>
+  <div class="spacer"></div>
+  <img class="logo-img" alt="PwC" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAALoAAACUCAMAAAATdsOFAAAAolBMVEX///8AAAD9UQj9SAD/4dpwcHD9bEP9MQD9fFf+xrz9PQDk5OT7+/v4+PiOjo5VVVWzs7NAQEDq6urU1NSmpqby8vIPDw8ZGRnLy8siIiKZmZlNTU29vb3c3NzExMQpKSllZWV6enoxMTFdXV05OTmFhYX/8+/9WCL9ZDn+nob+hWv+zL/+uar9eWD9c1L+rJr9kn79WzL9GQD+08r+pZH+vrdJuCh9AAAEW0lEQVR4nO2aaXerNhBA4cXUjcFY7LsB26R5+9b+/79WsWiQsFH7TpFxTud+skCIizQaJBJNQxAEQRAEQRAEQRAEQRAEQRAEQRAEQZD/HS9//DbL6/u17aR82D3N87K2nYyPT+9m2X1a207Gy+d59acvD93pX3fznf70cW07GDemoXSad/s9bWk2C9l3T6983aejKef2zn+XNtu99lWBsJa4fLV0nW3v5cWU7K5lWSQB57Gn6TJJDHnoY/382r71afhjLe8Kvy01YS6c9r28nYbHezbD+vbSfl5a/neR56jiIIgvwrAjM+HgP6Y2+acXz0THdawwookyIcCDw/zU2h/t51zRY32Cv0dmNSR7qux5pWNHpPlhZ8DS9PDcNoRve2aBh2vzR0je6afLzAI/ah7A6ezvbkoZbzDemoOqvwlVJ44OOH5fwfJ8uzp1hy4wFnHYP2Cv7vclnQxnj81F5znkCla/pMoSuMOxCYU7prRCUR0ucNRh6ntjcBLVq25UggaabPpH1sPj4uZBpEsIaQQQ/gCo+6w7RXXHowUvG05eiKUdht/l4t3uStX1g6uR02msw9QLFlc31L2ho/shYI+hX037/8re930CzZ9TWkxZR7UQmjuOxLcn6qw8VT+bWsCequyCB9r2llbvMEbRFpNFA6XuU4orqnvjsIjqtabV7FQf3ZlYVKw+RjIN1z5DmqJ6OaOeeFoRiVVBPb6P+h66bugsUZ0bFVHd5tpKLVE9uL6vCnWNwMzMr9VNNg+n6g49l4kXQtuVEvMb6ia8mfwrdat9317Ka/WIzsQcMvoQ22aalUmZ2YsnmDl17SyOO69+pHZOmonq7GqIpQhi2yyKwlT1KemGesUO2VP1oD3VsMTeqxftg9jtr5RdV6qZlr+iftXr7dvVsTxePWgb6NcAkPCj9dWHVA/qbtjFsaCeQmxboK4oj/+K+iQ5dsuuShPUc+5SCBiurfuq79liIPIE9UOnWQjq+zbZ1NpUvVG5wZCox2y5bbiC+iUaaoG61q0Nz+yFMybHUNH24p/UofOG3QDemob6lcTv3cRbcDGyp3XLulq6i7LK0zJ0496aIfej2n4VJyU7IeaxbCTdQMwvzyi/Ucp95HNVNPnHFo+hPjPuvA2Ra1mkGYqses7LAao3oUCOpdBN1ujF7ORsOiOz77DuoBbOlKqDGqD0/HqZ8mrY1bXdqCTXKSduGnWD31vHjcM1XjkgnUM22qfpkGsckNCIdi9eQ0biISn1thM/WQbdNAPcmvmoNtNU90XW9R9ZEwFRZ7TB3mGqjf6kz3qsHEL9SsHeFOUUIps5pMF6mmHlHCMwSH54Tdkep2i0UVskwThlGtZkstqC95i4KkTdOk/lHRJqMH1O+zUF0SVF8DVF+DN6xeq0iO98Al8BcIgyhNwgvDfT8c3ux32VMuQTNVr9V811RAbk8gb6bXrf2ER/5HMwRBEARBEARBEARBEARBEARBEARBEAS5A38D+hJNOXfVPg8AAAAASUVORK5CYII="/>
+</header>
+
+<div class="wrap">
+  <!-- SLICERS -->
+  <div class="card">
+    <h3>Filters</h3>
+    <div class="controls">
+      <div class="slicer"><label>Workstream (multi)</label><select id="f-workstream" multiple></select></div>
+      <div class="slicer"><label>Vendor (multi)</label><select id="f-vendor" multiple></select></div>
+      <div class="slicer"><label>PO (multi)</label><select id="f-po" multiple></select></div>
+      <div class="slicer"><label>Category (multi)</label><select id="f-category" multiple></select></div>
+      <div class="slicer"><label>Commitment (multi)</label><select id="f-commitment" multiple></select></div>
+      <div class="slicer"><label>Fiscal Year (multi)</label><select id="f-fy" multiple></select></div>
+      <div class="slicer"><label>Quarter (multi)</label><select id="f-quarter" multiple></select></div>
+      <div class="slicer"><label>Month (multi)</label><select id="f-month" multiple></select></div>
+      <div class="btnrow">
+        <div class="toolbar">
+          <button id="btn-reset" class="secondary">Reset</button>
+          <button id="btn-print" class="secondary">Print</button>
+          <button id="btn-csv" class="secondary">Export Pivot CSV</button>
+        </div>
+        <div class="hint">Scope: Apr‑2025 → Mar‑2032 • Actuals through <b>Nov‑2025</b> • Remaining = Budget − Actuals • Cap: <b>$5M</b></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- KPIs -->
+  <div class="kpis">
+    <div class="kpi"><div class="label">Total Budget (filtered)</div><div class="value" id="k-total">$0</div></div>
+    <div class="kpi"><div class="label">Budget‑to‑Date (≤ Nov‑2025)</div><div class="value" id="k-btd">$0</div></div>
+    <div class="kpi"><div class="label">Actuals‑to‑Date</div><div class="value" id="k-atd">$0</div><div class="delta" id="k-var"></div></div>
+    <div class="kpi"><div class="label">Remaining</div><div class="value" id="k-rem">$0</div></div>
+    <div class="kpi"><div class="label">Projected (A+R)</div><div class="value" id="k-proj">$0</div></div>
+    <div class="kpi"><div class="label">Line Items</div><div class="value" id="k-rows">0</div></div>
+  </div>
+
+  <!-- CHARTS -->
+  <div class="grid2">
+    <div class="card">
+      <h3>Burn‑up: Actuals‑to‑Date vs Budget‑to‑Date (Apr → Nov 2025)</h3>
+      <canvas id="ch-burnup"></canvas>
+      <div class="note">Variance = ATD − BTD. Positive = <span class="tag bad">Unfavorable</span>; Negative = <span class="tag ok">Favorable</span>.</div>
+    </div>
+    <div class="card">
+      <h3>Burn‑down: Remaining (Plan) vs ETC (Actual Remaining)</h3>
+      <canvas id="ch-burndown"></canvas>
+      <div class="note">ETC = Total Budget − Cumulative Actuals; Plan Remaining = Total Budget − Cumulative Budget. X‑axis reversed (top‑right → bottom‑left).</div>
+    </div>
+  </div>
+
+  <!-- PIES -->
+  <div class="grid2b">
+    <div class="card"><h3>Budget mix by Category</h3><canvas id="ch-pie-category"></canvas></div>
+    <div class="card"><h3>Budget mix by Workstream</h3><canvas id="ch-pie-workstream"></canvas></div>
+  </div>
+
+  <!-- PIVOT -->
+  <div class="card" style="margin-top:12px">
+    <div style="display:flex;align-items:center;justify-content:space-between">
+      <h3>Pivot — costs grouped by <span id="group-label">Category</span></h3>
+      <div class="toolbar">
+        <label class="hint">Group by:&nbsp;
+          <select id="group-by">
+            <option value="Category">Category</option>
+            <option value="Workstream">Workstream</option>
+            <option value="Vendor">Vendor</option>
+            <option value="PO">PO</option>
+            <option value="Commitment">Commitment</option>
+            <option value="FY">Fiscal Year</option>
+            <option value="Quarter">Quarter</option>
+            <option value="Month">Month</option>
+          </select>
+        </label>
+      </div>
+    </div>
+    <div style="overflow:auto;max-height:520px;border:1px solid var(--border);border-radius:10px">
+      <table id="pivot">
+        <thead>
+          <tr>
+            <th>Group</th><th>Rows</th><th>Total Budget</th><th>Budget‑to‑Date</th>
+            <th>Actuals‑to‑Date</th><th>Variance</th><th>Remaining</th><th>F/(U)</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    <div class="note">Use the Category slicer to see the **Operating Cost** bucket you care about; row count + BTD/ATD/Variance shown per grouping.</div>
+  </div>
+
+  <!-- OPERATING COST ANALYSIS -->
+  <div class="card" style="margin-top:12px">
+    <div style="display:flex;align-items:center;justify-content:space-between">
+      <h3>Operating Costs — by Fiscal Year & Category</h3>
+      <div class="toolbar">
+        <label class="hint">Metric:&nbsp;
+          <select id="oc-metric">
+            <option value="Budget">Budget</option>
+            <option value="ATD">Actuals‑to‑Date</option>
+            <option value="BTD">Budget‑to‑Date</option>
+            <option value="Remaining">Remaining</option>
+          </select>
+        </label>
+      </div>
+    </div>
+    <div class="grid2b">
+      <div class="card"><h3>Stacked by FY (Operating Cost categories)</h3><canvas id="ch-oc-stacked"></canvas></div>
+      <div class="card">
+        <h3>FY × Category (pivot)</h3>
+        <div style="overflow:auto;max-height:360px;border:1px solid var(--border);border-radius:10px">
+          <table id="tbl-oc">
+            <thead><tr><th>Fiscal Year</th><th>Resource</th><th>Product</th><th>Services</th><th>Contingency</th><th>Total</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <div class="note">Shows which operating cost buckets are highest across the years; honors all slicers.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ---------- Utilities ---------- */
+const START = new Date(2025,3,1);           // Apr 1, 2025
+const END   = new Date(2032,2,31);          // Mar 31, 2032
+const CUTOFF= new Date(2025,10,30);         // Nov 30, 2025
+
+const fmt  = new Intl.NumberFormat('en-US',{style:'currency',currency:'USD',maximumFractionDigits:0});
+const fmt0 = n=> n.toLocaleString('en-US');
+const gid  = id => document.getElementById(id);
+const qs   = sel=> document.querySelector(sel);
+
+function monthList(a,b){ const out=[]; const d=new Date(a.getTime()); d.setDate(1); while(d<=b){ out.push(new Date(d)); d.setMonth(d.getMonth()+1);} return out; }
+function monLabel(d){ return d.toLocaleString('en-US',{month:'short',year:'numeric'}); }
+function fy(d){ return 'FY'+(d.getMonth()>=3? d.getFullYear()+1 : d.getFullYear()); }
+function qtr(d){ const m=d.getMonth(); if(m>=3&&m<=5) return 'Q1'; if(m>=6&&m<=8) return 'Q2'; if(m>=9&&m<=11) return 'Q3'; return 'Q4'; }
+
+/* Seeded random (stable mocks) */
+let SEED=42; function rnd(){ SEED=(SEED*1664525+1013904223)>>>0; return SEED/4294967296;}
+function rint(a,b){return Math.floor(rnd()*(b-a+1))+a;} function pick(a){return a[Math.floor(rnd()*a.length)];}
+
+/* ---------- Synthetic dataset (≤ $5M total) ---------- */
+const WORKSTREAMS=['Identity & Access','Network Segmentation','Endpoint Security','Cloud Security','Data Protection','Monitoring & Analytics','Governance & PMO'];
+const VENDORS=['Microsoft','AWS','Okta','Zscaler','CrowdStrike','ServiceNow','Cisco','PwC'];
+const CATEGORIES=['Resource','Product','Services','Contingency'];
+const COMMITS=['Committed','Planned','On Hold'];
+const POs=[]; for(const v of VENDORS){ for(let i=1;i<=4;i++) POs.push({po:`PO-${v.slice(0,3).toUpperCase()}-${String(i).padStart(3,'0')}`,vendor:v}); }
+
+function buildData(){
+  const months=monthList(START,END);
+  const raw=[];
+  for(const m of months){
+    const n=rint(8,16);
+    for(let i=0;i<n;i++){
+      const poObj=pick(POs);
+      const bud=rint(2000,35000)*(1+0.08*(i%4));
+      const act=m<=CUTOFF? (bud*((pick(COMMITS)==='Committed')?(0.65+0.30*rnd()):(0.30+0.45*rnd()))):0;
+      raw.push({
+        Month: monLabel(m), FY:fy(m), Quarter:qtr(m),
+        Workstream:pick(WORKSTREAMS), Vendor:poObj.vendor, PO:poObj.po,
+        Category:pick(CATEGORIES), Commitment:pick(COMMITS),
+        BudgetRaw:bud, ActualRaw:act
+      });
+    }
+  }
+  const totalRaw=raw.reduce((s,r)=>s+r.BudgetRaw,0);
+  const SCALE=(5_000_000*0.985)/totalRaw;
+  return raw.map(r=>{
+    const B=Math.round(r.BudgetRaw*SCALE);
+    const A=Math.min(Math.round(r.ActualRaw*SCALE),B);
+    return {...r, Budget:B, Actual:A, Remaining:B-A};
+  });
+}
+const DATA=buildData();
+
+/* ---------- Slicers ---------- */
+function unique(a,k){return [...new Set(a.map(x=>x[k]))].sort((x,y)=>(''+x).localeCompare(y));}
+function fillSelect(el,values){ el.innerHTML=''; values.forEach(v=>{const o=document.createElement('option');o.value=v;o.textContent=v;el.appendChild(o)}); }
+
+fillSelect(gid('f-workstream'), unique(DATA,'Workstream'));
+fillSelect(gid('f-vendor'),     unique(DATA,'Vendor'));
+fillSelect(gid('f-po'),         unique(DATA,'PO'));
+fillSelect(gid('f-category'),   unique(DATA,'Category'));
+fillSelect(gid('f-commitment'), unique(DATA,'Commitment'));
+fillSelect(gid('f-fy'),         unique(DATA,'FY'));
+fillSelect(gid('f-quarter'),    unique(DATA,'Quarter'));
+fillSelect(gid('f-month'),      unique(DATA,'Month'));
+
+function sel(el){ return [...el.selectedOptions].map(o=>o.value); }
+function pass(v,arr){ return arr.length===0 || arr.includes(v); }
+function filtered(){
+  const sW=sel(gid('f-workstream')), sV=sel(gid('f-vendor')), sPO=sel(gid('f-po')),
+        sC=sel(gid('f-category')),   sCm=sel(gid('f-commitment')),
+        sFY=sel(gid('f-fy')),        sQ =sel(gid('f-quarter')), sM =sel(gid('f-month'));
+  return DATA.filter(r =>
+    pass(r.Workstream,sW)&&pass(r.Vendor,sV)&&pass(r.PO,sPO)&&pass(r.Category,sC)&&pass(r.Commitment,sCm)&&
+    pass(r.FY,sFY)&&pass(r.Quarter,sQ)&&pass(r.Month,sM)
+  );
+}
+
+/* ---------- Aggregation helpers ---------- */
+function sum(rows,k){return rows.reduce((s,r)=>s+(r[k]||0),0);}
+function monthToDateObj(mStr){ return new Date(mStr.replace(/(\w{3}) (\d{4})/,'$1 1, $2')); }
+function toDate(rows){
+  const btd = rows.filter(r => monthToDateObj(r.Month)<=CUTOFF).reduce((s,r)=>s+r.Budget,0);
+  const atd = rows.filter(r => monthToDateObj(r.Month)<=CUTOFF).reduce((s,r)=>s+r.Actual,0);
+  return {btd,atd};
+}
+function groupBy(rows,key){
+  const m=new Map();
+  for(const r of rows){ if(!m.has(r[key])) m.set(r[key],[]); m.get(r[key]).push(r); }
+  return [...m.entries()].map(([g,list])=>{
+    const {btd,atd}=toDate(list);
+    return {Group:g, Rows:list.length, Budget:sum(list,'Budget'), BTD:btd, ATD:atd, Var:atd-btd, Remaining:sum(list,'Remaining')};
+  }).sort((a,b)=>b.Budget-a.Budget);
+}
+
+/* ---------- KPIs ---------- */
+function renderKPIs(rows){
+  const {btd,atd}=toDate(rows);
+  const total=sum(rows,'Budget'), rem=sum(rows,'Remaining'), proj=atd+rem;
+  gid('k-total').textContent=fmt.format(total);
+  gid('k-btd').textContent=fmt.format(btd);
+  gid('k-atd').textContent=fmt.format(atd);
+  gid('k-rem').textContent=fmt.format(rem);
+  gid('k-proj').textContent=fmt.format(proj);
+  gid('k-rows').textContent=fmt0(rows.length);
+  const v=atd-btd; const cls=v>0?'bad':(v<0?'ok':'warn');
+  gid('k-var').className='delta '+cls;
+  gid('k-var').textContent=`Variance vs BTD: ${fmt.format(v)} ${v>0?'(Unfavorable)':(v<0?'(Favorable)':'(On Plan)')}`;
+}
+
+/* ---------- Pivot ---------- */
+const pivotBody = qs('#pivot tbody');
+const groupSel  = gid('group-by');
+const groupLbl  = gid('group-label');
+function renderPivot(rows){
+  const key=groupSel.value; groupLbl.textContent=key;
+  const agg=groupBy(rows,key);
+  pivotBody.innerHTML = agg.map(r=>`
+    <tr>
+      <td>${r.Group}</td>
+      <td>${fmt0(r.Rows)}</td>
+      <td>${fmt.format(r.Budget)}</td>
+      <td>${fmt.format(r.BTD)}</td>
+      <td>${fmt.format(r.ATD)}</td>
+      <td>${fmt.format(r.Var)}</td>
+      <td>${fmt.format(r.Remaining)}</td>
+      <td>${r.Var>0?'<span class="tag bad">U</span>':r.Var<0?'<span class="tag ok">F</span>':'<span class="tag">On</span>'}</td>
+    </tr>`).join('');
+}
+
+/* ---------- Charts ---------- */
+let chBurnUp, chBurnDown, chPieCat, chPieWs, ocChart;
+
+function seriesBurnUp(rows){
+  const months=monthList(START,CUTOFF);
+  const labels=months.map(monLabel);
+  let cumB=0,cumA=0; const sB=[],sA=[];
+  for(const m of months){
+    const lab=monLabel(m);
+    const b=rows.filter(r=>r.Month===lab).reduce((s,x)=>s+x.Budget,0);
+    const a=rows.filter(r=>r.Month===lab).reduce((s,x)=>s+x.Actual,0);
+    cumB+=b; cumA+=a; sB.push(cumB); sA.push(cumA);
+  }
+  return {labels,sB,sA};
+}
+
+function seriesBurnDown(rows){
+  const months=monthList(START,CUTOFF);
+  const labels=months.map(monLabel);
+  const total=sum(rows,'Budget');
+  let cumB=0,cumA=0; const planRem=[], etcRem=[];
+  for(const m of months){
+    const lab=monLabel(m);
+    const b=rows.filter(r=>r.Month===lab).reduce((s,x)=>s+x.Budget,0);
+    const a=rows.filter(r=>r.Month===lab).reduce((s,x)=>s+x.Actual,0);
+    cumB+=b; cumA+=a;
+    planRem.push(total-cumB);
+    etcRem.push(total-cumA);
+  }
+  return {labels,planRem,etcRem};
+}
+
+function ensure(old, ctx, opt){ if(old) old.destroy(); return new Chart(ctx,opt); }
+
+function renderCharts(rows){
+  if(!window.Chart){
+    alert('Chart.js did not load (CDN blocked). I can give you a fully offline version with Chart.js inlined.');
+    return;
+  }
+  // Burn‑up
+  const su=seriesBurnUp(rows);
+  chBurnUp = ensure(chBurnUp, gid('ch-burnup').getContext('2d'), {
+    type:'line',
+    data:{ labels:su.labels, datasets:[
+      {label:'Budget‑to‑Date (Cumulative)', data:su.sB, tension:.2, borderWidth:2},
+      {label:'Actuals‑to‑Date (Cumulative)', data:su.sA, tension:.2, borderWidth:2}
+    ]},
+    options:{ plugins:{legend:{position:'bottom'}}, scales:{ y:{ticks:{callback:v=>fmt.format(v).replace('$','$ ')}}}}
+  });
+
+  // Burn‑down (Remaining vs ETC) with reversed X
+  const sd=seriesBurnDown(rows);
+  chBurnDown = ensure(chBurnDown, gid('ch-burndown').getContext('2d'), {
+    type:'line',
+    data:{ labels:sd.labels, datasets:[
+      {label:'Plan Remaining', data:sd.planRem, tension:.2, borderWidth:2},
+      {label:'ETC (Actual Remaining)', data:sd.etcRem, tension:.2, borderWidth:2}
+    ]},
+    options:{ plugins:{legend:{position:'bottom'}},
+      scales:{ x:{reverse:true}, y:{ticks:{callback:v=>fmt.format(v).replace('$','$ ')}} }
+    }
+  });
+
+  // Pies
+  const cats=[...new Set(rows.map(r=>r.Category))];
+  const catVals=cats.map(c=> rows.filter(r=>r.Category===c).reduce((s,x)=>s+x.Budget,0));
+  chPieCat = ensure(chPieCat, gid('ch-pie-category').getContext('2d'),
+    {type:'pie', data:{labels:cats, datasets:[{data:catVals}]}, options:{plugins:{legend:{position:'bottom'}}}}
+  );
+  const wss=[...new Set(rows.map(r=>r.Workstream))];
+  const wsVals=wss.map(w=> rows.filter(r=>r.Workstream===w).reduce((s,x)=>s+x.Budget,0));
+  chPieWs = ensure(chPieWs, gid('ch-pie-workstream').getContext('2d'),
+    {type:'doughnut', data:{labels:wss, datasets:[{data:wsVals}]}, options:{plugins:{legend:{position:'bottom'}}}}
+  );
+
+  renderOC(rows); // operating cost
+}
+
+/* ---------- Operating Cost (stacked) ---------- */
+const ocMetricSel = gid('oc-metric');
+function ocAgg(rows, metric){
+  const fyList=[...new Set(rows.map(r=>r.FY))].sort();
+  const bucket=['Resource','Product','Services','Contingency'];
+  const dataByFY=bucket.map(()=> fyList.map(()=>0));
+  const cell = (r)=> metric==='Budget'? r.Budget : metric==='Remaining'? r.Remaining
+                : metric==='ATD'? (monthToDateObj(r.Month)<=CUTOFF? r.Actual:0)
+                : (monthToDateObj(r.Month)<=CUTOFF? r.Budget:0);
+  for(const fy of fyList){
+    const rowsFY=rows.filter(r=>r.FY===fy);
+    for(let i=0;i<bucket.length;i++){
+      const val=rowsFY.filter(r=>r.Category===bucket[i]).reduce((s,x)=>s+cell(x),0);
+      dataByFY[i][fyList.indexOf(fy)]=val;
+    }
+  }
+  return {fyList, bucket, dataByFY};
+}
+function renderOC(rows){
+  const metric=ocMetricSel.value;
+  const {fyList,bucket,dataByFY}=ocAgg(rows, metric);
+  ocChart = ensure(ocChart, gid('ch-oc-stacked').getContext('2d'), {
+    type:'bar',
+    data:{ labels:fyList, datasets: bucket.map((b,i)=>({label:b, data:dataByFY[i]})) },
+    options:{ plugins:{legend:{position:'bottom'}}, responsive:true,
+      scales:{ x:{stacked:true}, y:{stacked:true, ticks:{callback:v=>fmt.format(v).replace('$','$ ')}}}}
+  });
+  const tbody=qs('#tbl-oc tbody'); tbody.innerHTML='';
+  for(let i=0;i<fyList.length;i++){
+    const r=[dataByFY[0][i],dataByFY[1][i],dataByFY[2][i],dataByFY[3][i]];
+    const tot=r.reduce((s,x)=>s+x,0);
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td>${fyList[i]}</td>
+      <td>${fmt.format(r[0])}</td><td>${fmt.format(r[1])}</td>
+      <td>${fmt.format(r[2])}</td><td>${fmt.format(r[3])}</td>
+      <td>${fmt.format(tot)}</td>`;
+    tbody.appendChild(tr);
+  }
+}
+
+/* ---------- Export & wiring ---------- */
+function toCSV(){
+  const rows=filtered();
+  const key=groupSel.value;
+  const agg=groupBy(rows,key);
+  const hdr=['Group','Rows','Total Budget','Budget-to-Date','Actuals-to-Date','Variance','Remaining','Status'];
+  const lines=[hdr.join(',')].concat(agg.map(x=>[x.Group,x.Rows,x.Budget,x.BTD,x.ATD,x.Var,x.Remaining,(x.Var>0?'Unfavorable':x.Var<0?'Favorable':'On Plan')].join(',')));
+  const blob=new Blob([lines.join('\n')],{type:'text/csv'}); const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob); a.download=`Demo_Pivot_${key}.csv`; a.click(); URL.revokeObjectURL(a.href);
+}
+function resetFilters(){ ['f-workstream','f-vendor','f-po','f-category','f-commitment','f-fy','f-quarter','f-month'].forEach(id=>gid(id).selectedIndex=-1); refresh(); }
+function refresh(){
+  const rows=filtered();
+  renderKPIs(rows); renderPivot(rows); renderCharts(rows);
+}
+gid('btn-csv').addEventListener('click',toCSV);
+gid('btn-print').addEventListener('click',()=>window.print());
+gid('btn-reset').addEventListener('click',resetFilters);
+['f-workstream','f-vendor','f-po','f-category','f-commitment','f-fy','f-quarter','f-month','group-by'].forEach(id=>gid(id).addEventListener('change',refresh));
+ocMetricSel.addEventListener('change',()=>renderOC(filtered()));
+
+/* Init */
+if(!window.Chart){
+  // If CDN is blocked you will see this message; ask me for an offline build with Chart.js embedded.
+  console.warn('Chart.js not found on window.');
+}
+refresh();
+</script>
+</body>
+</html>
