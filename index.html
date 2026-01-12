@@ -3,7 +3,22 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Demo Finance — Draft Dashboard (v3)</title>
+<title>PMP Hangman — PWA</title>
+<meta name="description" content="PMP Hangman — installable PWA experience (Add to Home Screen)."/>
+
+<!-- PWA -->
+<link rel="manifest" href="./manifest.webmanifest">
+<meta name="theme-color" content="#D04A02">
+
+<!-- iOS Add to Home Screen helpers -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="PMP Hangman">
+<link rel="apple-touch-icon" href="./icons/icon-192.png">
+
+<!-- Favicons (nice-to-have) -->
+<link rel="icon" type="image/png" sizes="192x192" href="./icons/icon-192.png">
+<link rel="icon" type="image/png" sizes="512x512" href="./icons/icon-512.png">
 
 <!-- Chart.js -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -15,11 +30,35 @@
     --ok:#15803d; --bad:#b91c1c; --warn:#a16207; --border:#e8e3df;
   }
   html,body{margin:0;background:var(--pwc-cloud);color:#222;font:14px/1.45 Inter,system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif}
+
   header{position:sticky;top:0;z-index:10;background:#fff;border-bottom:3px solid var(--pwc-orange);
          padding:12px 16px;display:flex;align-items:center;gap:12px}
   header h1{margin:0;font-size:18px;color:var(--pwc-charcoal)}
   .spacer{flex:1}
   .logo-img{height:34px;display:block}
+
+  /* Optional PWA install button + tip styles */
+  .installBtn{display:none}
+  .ios-tip{
+    display:none;
+    max-width:1320px;
+    margin:10px auto 0;
+    padding:0 16px;
+  }
+  .ios-tip .card{
+    background:#fff;
+    border:1px solid var(--border);
+    border-radius:12px;
+    padding:10px 12px;
+    box-shadow:0 2px 6px rgba(0,0,0,.04);
+    display:flex;
+    gap:10px;
+    align-items:flex-start;
+    justify-content:space-between;
+  }
+  .ios-tip .msg{color:#333;font-size:12px}
+  .ios-tip .close{background:#fff;border:1px solid var(--border);border-radius:8px;padding:6px 10px;cursor:pointer;font-weight:700}
+
   .wrap{max-width:1320px;margin:16px auto 48px;padding:0 16px}
   .card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px;box-shadow:0 2px 6px rgba(0,0,0,.04)}
   .card h3{margin:0 0 8px;font-size:14px;color:#333}
@@ -66,16 +105,30 @@
   }
   @media print{
     header{position:static}
-    .btnrow, #btn-csv{display:none!important}
+    .btnrow, #btn-csv, #installBtn{display:none!important}
     .card{break-inside:avoid}
+    .ios-tip{display:none!important}
   }
 </style>
 </head>
 <body>
 <header>
-  <h1>Demo client</h1>
+  <h1>PMP Hangman</h1>
   <div class="spacer"></div>
+
+  <!-- Optional: install button for Chromium browsers (shows only when install is available) -->
+  <button id="installBtn" class="primary installBtn" type="button" title="Install this app">Install</button>
 </header>
+
+<!-- Optional: iOS tip banner (shows only on iPhone/iPad Safari when not already installed) -->
+<div class="ios-tip" id="iosTip">
+  <div class="card">
+    <div class="msg">
+      To install: tap <b>Share</b> (square with arrow) → <b>Add to Home Screen</b>.
+    </div>
+    <button class="close" id="iosTipClose" type="button">Close</button>
+  </div>
+</div>
 
 <div class="wrap">
   <!-- SLICERS -->
@@ -96,7 +149,7 @@
           <button id="btn-print" class="secondary">Print</button>
           <button id="btn-csv" class="secondary">Export Pivot CSV</button>
         </div>
-        <div class="hint">Scope: Apr‑2025 → Mar‑2032 • Actuals through <b>Nov‑2025</b> • Remaining = Budget − Actuals • Cap: <b>$5M</b></div>
+        <div class="hint">Scope: Apr-2025 → Mar-2032 • Actuals through <b>Nov-2025</b> • Remaining = Budget − Actuals • Cap: <b>$5M</b></div>
       </div>
     </div>
   </div>
@@ -104,8 +157,8 @@
   <!-- KPIs -->
   <div class="kpis">
     <div class="kpi"><div class="label">Total Budget (filtered)</div><div class="value" id="k-total">$0</div></div>
-    <div class="kpi"><div class="label">Budget‑to‑Date (≤ Nov‑2025)</div><div class="value" id="k-btd">$0</div></div>
-    <div class="kpi"><div class="label">Actuals‑to‑Date</div><div class="value" id="k-atd">$0</div><div class="delta" id="k-var"></div></div>
+    <div class="kpi"><div class="label">Budget-to-Date (≤ Nov-2025)</div><div class="value" id="k-btd">$0</div></div>
+    <div class="kpi"><div class="label">Actuals-to-Date</div><div class="value" id="k-atd">$0</div><div class="delta" id="k-var"></div></div>
     <div class="kpi"><div class="label">Remaining</div><div class="value" id="k-rem">$0</div></div>
     <div class="kpi"><div class="label">Projected (A+R)</div><div class="value" id="k-proj">$0</div></div>
     <div class="kpi"><div class="label">Line Items</div><div class="value" id="k-rows">0</div></div>
@@ -114,14 +167,14 @@
   <!-- CHARTS -->
   <div class="grid2">
     <div class="card">
-      <h3>Burn‑up: Actuals‑to‑Date vs Budget‑to‑Date (Apr → Nov 2025)</h3>
+      <h3>Burn-up: Actuals-to-Date vs Budget-to-Date (Apr → Nov 2025)</h3>
       <canvas id="ch-burnup"></canvas>
       <div class="note">Variance = ATD − BTD. Positive = <span class="tag bad">Unfavorable</span>; Negative = <span class="tag ok">Favorable</span>.</div>
     </div>
     <div class="card">
-      <h3>Burn‑down: Remaining (Plan) vs ETC (Actual Remaining)</h3>
+      <h3>Burn-down: Remaining (Plan) vs ETC (Actual Remaining)</h3>
       <canvas id="ch-burndown"></canvas>
-      <div class="note">ETC = Total Budget − Cumulative Actuals; Plan Remaining = Total Budget − Cumulative Budget. X‑axis reversed (top‑right → bottom‑left).</div>
+      <div class="note">ETC = Total Budget − Cumulative Actuals; Plan Remaining = Total Budget − Cumulative Budget. X-axis reversed (top-right → bottom-left).</div>
     </div>
   </div>
 
@@ -154,8 +207,8 @@
       <table id="pivot">
         <thead>
           <tr>
-            <th>Group</th><th>Rows</th><th>Total Budget</th><th>Budget‑to‑Date</th>
-            <th>Actuals‑to‑Date</th><th>Variance</th><th>Remaining</th><th>F/(U)</th>
+            <th>Group</th><th>Rows</th><th>Total Budget</th><th>Budget-to-Date</th>
+            <th>Actuals-to-Date</th><th>Variance</th><th>Remaining</th><th>F/(U)</th>
           </tr>
         </thead>
         <tbody></tbody>
@@ -172,8 +225,8 @@
         <label class="hint">Metric:&nbsp;
           <select id="oc-metric">
             <option value="Budget">Budget</option>
-            <option value="ATD">Actuals‑to‑Date</option>
-            <option value="BTD">Budget‑to‑Date</option>
+            <option value="ATD">Actuals-to-Date</option>
+            <option value="BTD">Budget-to-Date</option>
             <option value="Remaining">Remaining</option>
           </select>
         </label>
@@ -196,6 +249,62 @@
 </div>
 
 <script>
+/* ---------------- PWA: Service Worker registration ---------------- */
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("./sw.js").catch(console.error);
+  });
+}
+
+/* ---------------- PWA: Optional "Install" button (Chromium) ---------------- */
+let deferredPrompt = null;
+const installBtn = document.getElementById("installBtn");
+
+window.addEventListener("beforeinstallprompt", (e) => {
+  // Prevent the mini-infobar and store the event for triggering later
+  e.preventDefault();
+  deferredPrompt = e;
+
+  // Show the install button
+  if (installBtn) installBtn.style.display = "inline-flex";
+});
+
+if (installBtn) {
+  installBtn.addEventListener("click", async () => {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    await deferredPrompt.userChoice;
+    deferredPrompt = null;
+    installBtn.style.display = "none";
+  });
+}
+
+window.addEventListener("appinstalled", () => {
+  // App was installed
+  if (installBtn) installBtn.style.display = "none";
+});
+
+/* ---------------- PWA: Optional iOS "Add to Home Screen" tip ---------------- */
+(function iosA2HSTip(){
+  const tip = document.getElementById("iosTip");
+  const closeBtn = document.getElementById("iosTipClose");
+
+  const isIos = /iphone|ipad|ipod/i.test(window.navigator.userAgent);
+  const isInStandalone = window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone === true;
+
+  // Show tip only on iOS Safari when not installed
+  const dismissed = localStorage.getItem("iosTipDismissed") === "1";
+  if (isIos && !isInStandalone && !dismissed && tip) {
+    tip.style.display = "block";
+  }
+  if (closeBtn) {
+    closeBtn.addEventListener("click", () => {
+      localStorage.setItem("iosTipDismissed", "1");
+      if (tip) tip.style.display = "none";
+    });
+  }
+})();
+
 /* ---------- Utilities ---------- */
 const START = new Date(2025,3,1);           // Apr 1, 2025
 const END   = new Date(2032,2,31);          // Mar 31, 2032
@@ -362,21 +471,21 @@ function ensure(old, ctx, opt){ if(old) old.destroy(); return new Chart(ctx,opt)
 
 function renderCharts(rows){
   if(!window.Chart){
-    alert('Chart.js did not load (CDN blocked). I can give you a fully offline version with Chart.js inlined.');
+    alert('Chart.js did not load (CDN blocked). For full offline support, host Chart.js locally in your repo and reference it instead of the CDN.');
     return;
   }
-  // Burn‑up
+  // Burn-up
   const su=seriesBurnUp(rows);
   chBurnUp = ensure(chBurnUp, gid('ch-burnup').getContext('2d'), {
     type:'line',
     data:{ labels:su.labels, datasets:[
-      {label:'Budget‑to‑Date (Cumulative)', data:su.sB, tension:.2, borderWidth:2},
-      {label:'Actuals‑to‑Date (Cumulative)', data:su.sA, tension:.2, borderWidth:2}
+      {label:'Budget-to-Date (Cumulative)', data:su.sB, tension:.2, borderWidth:2},
+      {label:'Actuals-to-Date (Cumulative)', data:su.sA, tension:.2, borderWidth:2}
     ]},
     options:{ plugins:{legend:{position:'bottom'}}, scales:{ y:{ticks:{callback:v=>fmt.format(v).replace('$','$ ')}}}}
   });
 
-  // Burn‑down (Remaining vs ETC) with reversed X
+  // Burn-down (Remaining vs ETC) with reversed X
   const sd=seriesBurnDown(rows);
   chBurnDown = ensure(chBurnDown, gid('ch-burndown').getContext('2d'), {
     type:'line',
@@ -467,7 +576,6 @@ ocMetricSel.addEventListener('change',()=>renderOC(filtered()));
 
 /* Init */
 if(!window.Chart){
-  // If CDN is blocked you will see this message; ask me for an offline build with Chart.js embedded.
   console.warn('Chart.js not found on window.');
 }
 refresh();
